@@ -99,6 +99,11 @@ type Native struct {
 	ProgressAfter    time.Duration
 	ProgressInterval time.Duration
 	StreamLLMSpeech  bool
+	// KeepSpokenLinks disables removal of web addresses from streamed speech.
+	KeepSpokenLinks bool
+	// UtteranceSilenceMS, when positive, overrides how long the recognizer
+	// waits in silence before treating a voice question as finished.
+	UtteranceSilenceMS uint64
 
 	// WakewordRouteMarker, when set, is a file written by a local wake-word
 	// daemon; a fresh marker routes the next voice request to the LLM.
@@ -178,7 +183,7 @@ func (n *Native) Client(ctx context.Context, k websocket.MessageType, data []byt
 		p.input = append([]byte{}, data...)
 		p.gated = !p.isText || n.GateText
 
-		slog.Info("native_request_shape", "request", requestTag(id), "text_bytes", len(p.text), "event_type", req.GetRequest().GetEvent().GetType().String(), "stream", e.GetHeader().GetStreamId(), "unknown_request_bytes", len(req.ProtoReflect().GetUnknown()), "payload_bytes", len(req.GetRequest().GetEvent().GetPayloadRaw()))
+		slog.Info("native_request_shape", "request", requestTag(id), "utterance_silence_ms", req.GetAdvancedAsrOptions().GetUtteranceSilence(), "text_bytes", len(p.text), "event_type", req.GetRequest().GetEvent().GetType().String(), "stream", e.GetHeader().GetStreamId(), "unknown_request_bytes", len(req.ProtoReflect().GetUnknown()), "payload_bytes", len(req.GetRequest().GetEvent().GetPayloadRaw()))
 		n.mu.Lock()
 		if n.requests[id] != nil {
 			n.mu.Unlock()
@@ -223,6 +228,11 @@ func (n *Native) Client(ctx context.Context, k websocket.MessageType, data []byt
 			gated, err := wire.EnableApproval(f)
 			if err != nil {
 				return err
+			}
+			if f.Kind() == "VoiceInput" && n.UtteranceSilenceMS > 0 {
+				if gated, err = wire.SetUtteranceSilence(wire.Frame{Raw: gated, Prefix: f.Prefix}, n.UtteranceSilenceMS); err != nil {
+					return err
+				}
 			}
 			if err := n.up(ctx, k, gated); err != nil {
 				return err

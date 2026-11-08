@@ -48,6 +48,8 @@ type Engine struct {
 	// SystemPromptFile is read on every request; its text is appended to the
 	// built-in voice prompt. A missing or unreadable file adds nothing.
 	SystemPromptFile string
+	// KeepSpokenLinks leaves web addresses in answers instead of removing them.
+	KeepSpokenLinks bool
 	dialogueOnce  sync.Once
 	routing       atomic.Pointer[RoutingPolicy]
 }
@@ -215,7 +217,9 @@ func (e *Engine) Fallback(ctx context.Context, text string) (Resolution, error) 
 		return r, context.Canceled
 	}
 	if err == nil {
-		answer = stripSpokenLinks(answer)
+		if !e.KeepSpokenLinks {
+			answer = stripSpokenLinks(answer)
+		}
 		if !e.dialogue().Commit(ctx, ticket, text, answer, private) {
 			return r, context.Canceled
 		}

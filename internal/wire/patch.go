@@ -27,6 +27,20 @@ func EnableApproval(f Frame) ([]byte, error) {
 	}
 	return append(append([]byte{}, f.Prefix...), body...), nil
 }
+// SetUtteranceSilence sets how long the recognizer waits in silence before it
+// ends the user's utterance (milliseconds). Only VoiceInput frames carry it.
+func SetUtteranceSilence(f Frame, ms uint64) ([]byte, error) {
+	if f.Kind() != "VoiceInput" {
+		return nil, errors.New("not a voice input")
+	}
+	prefix := len(f.Prefix)
+	body, err := patchVarint(f.Raw[prefix:], []protowire.Number{1, 3, 25, 5}, ms)
+	if err != nil {
+		return nil, err
+	}
+	return append(append([]byte{}, f.Prefix...), body...), nil
+}
+
 func patchVarint(data []byte, path []protowire.Number, value uint64) ([]byte, error) {
 	if len(path) == 1 {
 		return protowire.AppendVarint(protowire.AppendTag(append([]byte{}, data...), path[0], protowire.VarintType), value), nil

@@ -52,7 +52,10 @@ func (s *speechStream) enqueue(text string) error {
 
 func (s *speechStream) delta(text string) error {
 	s.seen = true
-	for _, chunk := range s.chunks.add(s.links.add(text)) {
+	if !s.n.KeepSpokenLinks {
+		text = s.links.add(text)
+	}
+	for _, chunk := range s.chunks.add(text) {
 		if err := s.enqueue(chunk); err != nil {
 			return err
 		}
@@ -65,10 +68,12 @@ func (s *speechStream) delta(text string) error {
 func (s *speechStream) finish(resolveErr error) (bool, error) {
 	s.stopProgress()
 	if resolveErr == nil && s.seen {
-		for _, chunk := range s.chunks.add(s.links.flush()) {
-			if err := s.enqueue(chunk); err != nil {
-				resolveErr = err
-				break
+		if !s.n.KeepSpokenLinks {
+			for _, chunk := range s.chunks.add(s.links.flush()) {
+				if err := s.enqueue(chunk); err != nil {
+					resolveErr = err
+					break
+				}
 			}
 		}
 		if tail := s.chunks.flush(); tail != "" {
