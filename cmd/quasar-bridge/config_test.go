@@ -23,6 +23,17 @@ func TestReadConfigWakewordRouteMarker(t *testing.T) {
 	}
 }
 
+func TestReadConfigStreamLLMSpeech(t *testing.T) {
+	cfg, err := readConfig(configFile(t, `{}`))
+	if err != nil || cfg.StreamLLMSpeech {
+		t.Fatalf("default streaming = %v, err = %v", cfg.StreamLLMSpeech, err)
+	}
+	cfg, err = readConfig(configFile(t, `{"stream_llm_speech":true}`))
+	if err != nil || !cfg.StreamLLMSpeech {
+		t.Fatalf("enabled streaming = %v, err = %v", cfg.StreamLLMSpeech, err)
+	}
+}
+
 func TestReadConfigLLMAPISettings(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
