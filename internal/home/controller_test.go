@@ -94,6 +94,28 @@ func TestLightingRequestInventoryIncludesSwitchesWithoutAllSensors(t *testing.T)
 	}
 }
 
+func TestImplicitLightingRequestScopesToLightsAndConfirmsAction(t *testing.T) {
+	if got := controlDomains("Я нахожусь в спальне и ничего не вижу, помоги мне"); !slices.Contains(got, "light") || slices.Contains(got, "sensor") {
+		t.Fatalf("implicit-lighting domains=%v", got)
+	}
+
+	fixture := &homeFixture{state: "off"}
+	planner := plannerFunc(func(_ context.Context, messages []llm.Message, structured bool) (string, error) {
+		if !structured || !strings.Contains(messages[1].Content, "Свет в кабинете") {
+			t.Fatalf("implicit request lacks scoped inventory: %+v", messages)
+		}
+		b, _ := json.Marshal(map[string]any{
+			"answer":  "Включаю свет.",
+			"actions": []any{map[string]any{"domain": "light", "service": "turn_on", "entity_id": "light.office", "data": map[string]any{}}},
+		})
+		return string(b), nil
+	})
+	answer, err := (&Controller{Tools: fixture, Planner: planner}).Handle(t.Context(), "Я нахожусь в кабинете и ничего не вижу, помоги мне")
+	if err != nil || fixture.actions != 1 || fixture.state != "on" || answer == "" {
+		t.Fatalf("answer=%q actions=%d state=%q error=%v", answer, fixture.actions, fixture.state, err)
+	}
+}
+
 func TestHomeConfirmsLightBrightnessResult(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

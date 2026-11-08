@@ -37,6 +37,8 @@ const toolPrompt = configurationPrompt + `Используй доступные 
 // Reject the whole answer: removing tags could turn a failed action into success.
 var toolCallMarkup = regexp.MustCompile(`(?i)<\s*/?\s*(?:tool_calls?\b|function\s*=|parameter\s*=)`)
 
+const homeToolPrompt = `Если доступен control_home, вызывай его для явно названного или очевидного из контекста действия с реальными домашними устройствами и для вопросов об их состоянии. Например, «в спальне темно и ничего не видно» — подходящий запрос к control_home. Передай в request комнату и цель пользователя; результат инструмента повторяй без технических идентификаторов.`
+
 func (a *Agent) Complete(ctx context.Context, messages []llm.Message, structured bool) (string, error) {
 	private := false
 	return a.complete(ctx, messages, structured, &private)
@@ -68,6 +70,7 @@ func (a *Agent) complete(ctx context.Context, messages []llm.Message, structured
 	if status, ok := a.Tools.(interface{ ToolStatus() string }); ok {
 		system += "\n" + status.ToolStatus()
 	}
+	system += "\n" + homeToolPrompt
 	conversation := make([]llm.Message, 0, len(messages)+1)
 	for _, message := range messages {
 		if message.Role == "system" {

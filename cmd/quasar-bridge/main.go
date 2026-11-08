@@ -259,6 +259,9 @@ func main() {
 		if airPlay != nil {
 			tools.AirPlay = airPlay
 		}
+		if hc != nil {
+			tools.Home = hc
+		}
 		engine.Music = tools
 		engine.Assistant = &assistant.Agent{Client: lc, Tools: tools, MaxRounds: cfg.AssistantTools.MaxRounds, MaxCalls: cfg.AssistantTools.MaxCalls}
 	}

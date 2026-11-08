@@ -40,7 +40,7 @@ func TestRoutingConditionsAndOrderedPriority(t *testing.T) {
 }
 
 func TestMusicFromWebsiteRoutesBeforeYandexMusic(t *testing.T) {
-	e := &Engine{}
+	e := &Engine{Home: homeFunc(func(context.Context, string) (string, error) { return "", nil })}
 	for _, text := range []string{
 		"Включи музыку с сайта abc.su/music",
 		"Проиграй песни со страницы https://example.org/music",
@@ -54,6 +54,14 @@ func TestMusicFromWebsiteRoutesBeforeYandexMusic(t *testing.T) {
 	for _, text := range []string{"Включи музыку", "Включи радио", "Поставь песню"} {
 		if decision := e.Decide(t.Context(), text); decision.Route != "yandex" {
 			t.Errorf("ordinary Yandex music routing changed: %q: %+v", text, decision)
+		}
+	}
+	if decision := e.Decide(t.Context(), "Я нахожусь в спальне и ничего не вижу, помоги мне"); decision.Route != "home" || decision.Rule != "home_context" {
+		t.Fatalf("implicit lighting request routed incorrectly: %+v", decision)
+	}
+	for _, text := range []string{"не вижу смысла в этом споре", "на улице темнеет"} {
+		if decision := e.Decide(t.Context(), text); decision.Route == "home" && decision.Rule == "home_context" {
+			t.Fatalf("context rule overmatched: %q: %+v", text, decision)
 		}
 	}
 	if decision := e.Decide(t.Context(), "Не включай музыку с сайта abc.su/music"); decision.Rule == "music_from_site" {

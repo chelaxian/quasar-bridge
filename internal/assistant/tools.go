@@ -21,6 +21,10 @@ type BridgeUpdater interface {
 	Install(context.Context) (update.InstallResult, error)
 }
 
+type HomeController interface {
+	Handle(context.Context, string) (string, error)
+}
+
 type Tools struct {
 	Updater       BridgeUpdater
 	Config        Config
@@ -28,6 +32,7 @@ type Tools struct {
 	WebReader     *WebReader
 	Playback      *MusicPlayback
 	AirPlay       AirPlayController
+	Home          HomeController
 	Configuration BridgeConfiguration
 	Now           func() time.Time
 }
@@ -50,6 +55,14 @@ func (t *Tools) Definitions() []llm.Tool {
 		tools = append(tools,
 			definition("check_quasar_bridge_update", "Проверить на GitHub последний стабильный выпуск Quasar Bridge, сравнить с текущей версией и узнать возможность автоматической установки. Не меняет программу.", map[string]any{}, []string{}),
 			definition("install_quasar_bridge_update", "Установить последнюю стабильную версию Quasar Bridge с GitHub. Вызывать только по явной просьбе пользователя обновить Quasar Bridge. Проверяет SHA-256 и сохраняет настройки. Только для самостоятельной установки на колонке. scheduled означает, что установка запланирована и bridge скоро перезапустится; это ещё не подтверждение успешного обновления. Не принимает URL или номер версии.", map[string]any{}, []string{}))
+	}
+	if t.Config.HomeControl && t.Home != nil {
+		tools = append(tools, definition(
+			"control_home",
+			"Управлять реальными устройствами Home Assistant или узнать их состояние. request — понятная пользователю просьба с комнатой и целью, включая неявные просьбы вроде «в спальне темно» или «ничего не видно». Инструмент сам находит разрешённое устройство, выполняет только безопасный домашний план и подтверждает состояние. Не используй для справочных вопросов, музыки, таймеров или настройки Quasar Bridge.",
+			map[string]any{"request": map[string]any{"type": "string", "minLength": 1, "maxLength": 1000}},
+			[]string{"request"},
+		))
 	}
 	if t.Config.Web {
 		tools = append(tools, definition("read_webpage", "Прочитать публичную HTTP/HTTPS страницу по URL. Возвращает текст без JavaScript. Не является поиском в интернете.", map[string]any{"url": map[string]string{"type": "string"}}, []string{"url"}))
@@ -95,6 +108,14 @@ func (t *Tools) Call(ctx context.Context, name, args string) (any, error) {
 		return t.playMusic(ctx, args)
 	case name == "play_sound" && t.Config.PlaySound:
 		return playSound(ctx, args)
+	case name == "control_home" && t.Config.HomeControl && t.Home != nil:
+		var p struct {
+			Request string `json:"request"`
+		}
+		if json.Unmarshal([]byte(args), &p, json.RejectUnknownMembers(true)) != nil || strings.TrimSpace(p.Request) == "" || len(p.Request) > 1000 {
+			return nil, errors.New("invalid control_home request")
+		}
+		return t.Home.Handle(ctx, p.Request)
 	case name == "read_webpage" && t.Config.Web:
 		var p struct {
 			URL string `json:"url"`

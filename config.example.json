@@ -112,6 +112,32 @@
         }
       },
       {
+        "name": "home_context",
+        "route": "home",
+        "match": {
+          "contains_all_groups": [
+            [
+              "темно",
+              "темн",
+              "не вижу",
+              "ничего не видно",
+              "не видно"
+            ],
+            [
+              "спальн",
+              "кухн",
+              "коридор",
+              "комнат",
+              "моя",
+              "моей",
+              "ванн",
+              "туалет",
+              "балкон"
+            ]
+          ]
+        }
+      },
+      {
         "name": "home_devices",
         "route": "home",
         "match": {
@@ -254,6 +280,7 @@
     "time": true,
     "play_sound": false,
     "updates": true,
+    "home_control": true,
     "configuration": true,
     "timezone": "UTC",
     "max_rounds": 3,
