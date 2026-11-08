@@ -55,9 +55,9 @@ type config struct {
 	LLMSystemPromptFile string `json:"llm_system_prompt_file"`
 	// KeepSpokenLinks leaves web addresses in spoken and displayed answers.
 	KeepSpokenLinks bool `json:"keep_spoken_links"`
-	// UtteranceSilenceMS overrides the recognizer's end-of-question silence;
-	// zero keeps the speaker's default.
-	UtteranceSilenceMS int `json:"utterance_silence_ms"`
+	// DialogueResetFile is an absolute path; creating that file clears the
+	// conversation context before the next request.
+	DialogueResetFile string `json:"dialogue_reset_file"`
 	Routing            bridge.RoutingConfig `json:"routing"`
 }
 
@@ -159,8 +159,8 @@ func parseConfig(raw []byte, modelOptional bool) (config, error) {
 	if cfg.LLMSystemPromptFile != "" && !strings.HasPrefix(cfg.LLMSystemPromptFile, "/") {
 		return cfg, errors.New("llm_system_prompt_file must be an absolute path")
 	}
-	if cfg.UtteranceSilenceMS != 0 && (cfg.UtteranceSilenceMS < 200 || cfg.UtteranceSilenceMS > 15000) {
-		return cfg, errors.New("utterance_silence_ms must be 0 or between 200 and 15000")
+	if cfg.DialogueResetFile != "" && !strings.HasPrefix(cfg.DialogueResetFile, "/") {
+		return cfg, errors.New("dialogue_reset_file must be an absolute path")
 	}
 	if cfg.LLMReasoningEffort != "" {
 		if cfg.LLMAPI != "responses" && cfg.LLMAPI != "chatgpt" {

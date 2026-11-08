@@ -50,6 +50,9 @@ type Engine struct {
 	SystemPromptFile string
 	// KeepSpokenLinks leaves web addresses in answers instead of removing them.
 	KeepSpokenLinks bool
+	// DialogueResetFile, when set, names a file whose appearance clears all
+	// conversation context before the next request (used by the settings panel).
+	DialogueResetFile string
 	dialogueOnce  sync.Once
 	routing       atomic.Pointer[RoutingPolicy]
 }
@@ -68,6 +71,7 @@ func (e *Engine) Prepare(ctx context.Context) context.Context {
 	if ctx.Err() != nil {
 		return ctx
 	}
+	e.checkDialogueReset()
 	ctx, _, _ = e.dialogue().Start(ctx)
 	return ctx
 }
@@ -342,4 +346,13 @@ func (e *Engine) systemPromptExtra() string {
 		b = b[:8192]
 	}
 	return strings.TrimSpace(string(b))
+}
+
+func (e *Engine) checkDialogueReset() {
+	if e.DialogueResetFile == "" {
+		return
+	}
+	if err := os.Remove(e.DialogueResetFile); err == nil {
+		e.dialogue().ResetAll()
+	}
 }

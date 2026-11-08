@@ -209,6 +209,17 @@ func (s *Store) Reset(ctx context.Context) {
 	defer s.mu.Unlock()
 	delete(s.entries, key(ctx))
 }
+
+// ResetAll forgets every speaker's conversation.
+func (s *Store) ResetAll() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.generation++
+	clear(s.entries)
+}
 func Normalize(text string) string {
 	return strings.Trim(strings.ReplaceAll(strings.ToLower(strings.TrimSpace(text)), "ё", "е"), " .,!?:;«»\"")
 }

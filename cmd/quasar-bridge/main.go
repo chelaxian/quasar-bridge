@@ -195,7 +195,7 @@ func main() {
 	}}
 	logs := new(journal.Writer)
 	lc := newLLMClient(cfg, os.Getenv("QUASAR_LLM_API_KEY"))
-	engine := &bridge.Engine{LLM: lc, Dialogue: dialogue.New(cfg.DialogueContext), StripPrefixes: cfg.LLMStripPrefixes, SystemPromptFile: cfg.LLMSystemPromptFile, KeepSpokenLinks: cfg.KeepSpokenLinks}
+	engine := &bridge.Engine{LLM: lc, Dialogue: dialogue.New(cfg.DialogueContext), StripPrefixes: cfg.LLMStripPrefixes, SystemPromptFile: cfg.LLMSystemPromptFile, KeepSpokenLinks: cfg.KeepSpokenLinks, DialogueResetFile: cfg.DialogueResetFile}
 	// Recovery is a direct command path, independent of assistant tool settings
 	// and of the availability of either the classifier or the dialogue model.
 	engine.Recovery = func(ctx context.Context, action string) (string, error) {
@@ -333,7 +333,6 @@ func main() {
 			n.ShouldListen = cfg.ListenAfterReply
 			n.StreamLLMSpeech = cfg.StreamLLMSpeech
 			n.KeepSpokenLinks = cfg.KeepSpokenLinks
-			n.UtteranceSilenceMS = uint64(cfg.UtteranceSilenceMS)
 			n.WakewordRouteMarker = cfg.WakewordRouteMarker
 			if cfg.LocalProgress.Enabled {
 				n.ProgressAfter = time.Duration(cfg.LocalProgress.AfterMS) * time.Millisecond
