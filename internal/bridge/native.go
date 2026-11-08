@@ -596,7 +596,7 @@ func (n *Native) maybeResolve(p *nativeRequest) {
 		if n.resolver != nil && strings.TrimSpace(text) != "" {
 			if routed, ok := n.resolver.(RoutedResolver); ok {
 				decision := routed.Decide(p.ctx, text)
-				if p.wakewordLLM {
+				if p.wakewordLLM && decision.Source != "dialogue_reset" {
 					decision = RouteDecision{Route: "llm", Source: "wakeword"}
 				}
 				n.mu.Lock()
