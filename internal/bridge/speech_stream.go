@@ -18,6 +18,7 @@ type speechStream struct {
 	stop    func()
 	stopped sync.Once
 	chunks  speechChunks
+	links   speechLinks
 	queue   *speechQueue
 	seen    bool
 	emitted bool
@@ -51,7 +52,7 @@ func (s *speechStream) enqueue(text string) error {
 
 func (s *speechStream) delta(text string) error {
 	s.seen = true
-	for _, chunk := range s.chunks.add(text) {
+	for _, chunk := range s.chunks.add(s.links.add(text)) {
 		if err := s.enqueue(chunk); err != nil {
 			return err
 		}
@@ -64,6 +65,12 @@ func (s *speechStream) delta(text string) error {
 func (s *speechStream) finish(resolveErr error) (bool, error) {
 	s.stopProgress()
 	if resolveErr == nil && s.seen {
+		for _, chunk := range s.chunks.add(s.links.flush()) {
+			if err := s.enqueue(chunk); err != nil {
+				resolveErr = err
+				break
+			}
+		}
 		if tail := s.chunks.flush(); tail != "" {
 			if err := s.enqueue(tail); err != nil {
 				resolveErr = err

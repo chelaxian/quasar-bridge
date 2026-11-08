@@ -195,7 +195,7 @@ func main() {
 	}}
 	logs := new(journal.Writer)
 	lc := newLLMClient(cfg, os.Getenv("QUASAR_LLM_API_KEY"))
-	engine := &bridge.Engine{LLM: lc, Dialogue: dialogue.New(cfg.DialogueContext), StripPrefixes: cfg.LLMStripPrefixes}
+	engine := &bridge.Engine{LLM: lc, Dialogue: dialogue.New(cfg.DialogueContext), StripPrefixes: cfg.LLMStripPrefixes, SystemPromptFile: cfg.LLMSystemPromptFile}
 	// Recovery is a direct command path, independent of assistant tool settings
 	// and of the availability of either the classifier or the dialogue model.
 	engine.Recovery = func(ctx context.Context, action string) (string, error) {

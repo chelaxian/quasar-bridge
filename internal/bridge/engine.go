@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"errors"
+	"os"
 	"quasarbridge/internal/configvoice"
 	"quasarbridge/internal/dialogue"
 	"strings"
@@ -44,6 +45,9 @@ type Engine struct {
 	// StripPrefixes are model addresses removed only from outbound requests.
 	// An empty list disables stripping.
 	StripPrefixes []string
+	// SystemPromptFile is read on every request; its text is appended to the
+	// built-in voice prompt. A missing or unreadable file adds nothing.
+	SystemPromptFile string
 	dialogueOnce  sync.Once
 	routing       atomic.Pointer[RoutingPolicy]
 }
@@ -191,6 +195,9 @@ func (e *Engine) Fallback(ctx context.Context, text string) (Resolution, error) 
 		return r, context.Canceled
 	}
 	messages := []llm.Message{{Role: "system", Content: "Ты голосовой помощник пользователя. Отвечай по-русски, кратко и по существу, обычно до трёх предложений. Ответ будет прочитан вслух: без Markdown и служебных рассуждений. Выполняй внешние действия только доступными инструментами по явному запросу пользователя. Не заявляй о выполнении действий без успешного результата инструмента; если инструмента нет, прямо скажи об этом. Для Home Assistant есть отдельный обработчик умного дома."}}
+	if extra := e.systemPromptExtra(); extra != "" {
+		messages[0].Content += " " + extra
+	}
 	messages = append(messages, snapshot.Messages...)
 	messages = append(messages, llm.Message{Role: "user", Content: text})
 	messages = e.modelMessages(messages)
@@ -208,6 +215,7 @@ func (e *Engine) Fallback(ctx context.Context, text string) (Resolution, error) 
 		return r, context.Canceled
 	}
 	if err == nil {
+		answer = stripSpokenLinks(answer)
 		if !e.dialogue().Commit(ctx, ticket, text, answer, private) {
 			return r, context.Canceled
 		}
@@ -316,4 +324,18 @@ func (e *Engine) Decide(ctx context.Context, text string) (decision RouteDecisio
 		return failed
 	}
 	return RouteDecision{Route: choice.Route, Source: "classifier"}
+}
+
+func (e *Engine) systemPromptExtra() string {
+	if e.SystemPromptFile == "" {
+		return ""
+	}
+	b, err := os.ReadFile(e.SystemPromptFile)
+	if err != nil {
+		return ""
+	}
+	if len(b) > 8192 {
+		b = b[:8192]
+	}
+	return strings.TrimSpace(string(b))
 }

@@ -50,6 +50,9 @@ type config struct {
 	StreamLLMSpeech    bool                 `json:"stream_llm_speech"`
 	// WakewordRouteMarker is an absolute file path; empty disables the feature.
 	WakewordRouteMarker string `json:"wakeword_route_marker"`
+	// LLMSystemPromptFile is an optional absolute path to extra system-prompt
+	// text, re-read on every request.
+	LLMSystemPromptFile string `json:"llm_system_prompt_file"`
 	Routing            bridge.RoutingConfig `json:"routing"`
 }
 
@@ -147,6 +150,9 @@ func parseConfig(raw []byte, modelOptional bool) (config, error) {
 	}
 	if cfg.WakewordRouteMarker != "" && !strings.HasPrefix(cfg.WakewordRouteMarker, "/") {
 		return cfg, errors.New("wakeword_route_marker must be an absolute path")
+	}
+	if cfg.LLMSystemPromptFile != "" && !strings.HasPrefix(cfg.LLMSystemPromptFile, "/") {
+		return cfg, errors.New("llm_system_prompt_file must be an absolute path")
 	}
 	if cfg.LLMReasoningEffort != "" {
 		if cfg.LLMAPI != "responses" && cfg.LLMAPI != "chatgpt" {
