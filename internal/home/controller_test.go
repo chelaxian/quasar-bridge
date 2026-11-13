@@ -73,7 +73,7 @@ func TestHomeValidatesTargetsAndConfirmsPhysicalState(t *testing.T) {
 				return string(b), nil
 			})
 			c := Controller{Tools: fixture, Planner: planner, Domains: []string{"light"}}
-			answer, err := c.Handle(t.Context(), "Включи свет в кабинете")
+			answer, err := c.Handle(t.Context(), "Помоги включить свет в кабинете")
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("answer=%q error=%v", answer, err)
 			}
@@ -275,8 +275,8 @@ func TestHomeAnswerNamesDevicesWithoutEntityIDs(t *testing.T) {
 	for _, tc := range []struct {
 		name, question, reply, want string
 	}{
-		{"command_answer_with_id_in_brackets", "Включи свет в кабинете", "Свет в кабинете (light.office) уже включён.", "Свет в кабинете уже включён."},
-		{"command_answer_with_bare_id", "Включи свет в кабинете", "light.office уже включён.", "Свет в кабинете уже включён."},
+		{"command_answer_with_id_in_brackets", "Помоги включить свет в кабинете", "Свет в кабинете (light.office) уже включён.", "Свет в кабинете уже включён."},
+		{"command_answer_with_bare_id", "Помоги включить свет в кабинете", "light.office уже включён.", "Свет в кабинете уже включён."},
 		{"state_answer_with_bare_id", "Горит ли свет в кабинете?", "light.office включён.", "Свет в кабинете включён."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

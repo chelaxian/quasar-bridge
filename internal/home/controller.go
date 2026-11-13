@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -193,7 +194,11 @@ func (c *Controller) Handle(ctx context.Context, text string) (string, error) {
 	if c.FastTrack != nil {
 		plan, cached = c.FastTrack.Lookup(original)
 	}
+	direct := false
 	if !cached {
+		plan, direct = directHomeCommand(original, entities)
+	}
+	if !cached && !direct {
 		answer, err := c.Planner.Complete(ctx, []llm.Message{{Role: "system", Content: prompt + strings.Join(services, ", ")}, {Role: "user", Content: "Устройства: " + string(data) + "\nЗапрос: " + text + "\nИсходная фраза: " + original}}, true)
 		if err != nil {
 			return "", err
@@ -336,6 +341,39 @@ func (c *Controller) Handle(ctx context.Context, text string) (string, error) {
 		return "Готово: " + strings.Join(names, ", ") + ".", nil
 	}
 	return "Команда отправлена: " + strings.Join(names, ", ") + ".", nil
+}
+
+// directHomeCommand recognises only an explicit, complete binary command
+// with one unambiguous exposed target in the named area. Everything else
+// remains with the semantic planner. The caller validates and confirms it.
+var directHomePattern = regexp.MustCompile(`(?i)^\s*(?:пожалуйста\s+)?(включи|включите|выключи|выключите|погаси|зажги)\s+(свет|розетку|вентилятор)\s+(?:в|на)\s+([\p{L}]+)(?:\s+пожалуйста)?[.!\s]*$`)
+
+func directHomeCommand(text string, entities []Entity) (Plan, bool) {
+	m := directHomePattern.FindStringSubmatch(text)
+	if m == nil {
+		return Plan{}, false
+	}
+	service := "turn_on"
+	verb := strings.ToLower(m[1])
+	if strings.HasPrefix(verb, "выключ") || verb == "погаси" {
+		service = "turn_off"
+	}
+	domain := map[string]string{"свет": "light", "розетку": "switch", "вентилятор": "fan"}[strings.ToLower(m[2])]
+	room := strings.ToLower(m[3])
+	var target Entity
+	for _, entity := range entities {
+		if !strings.HasPrefix(entity.ID, domain+".") || !mentionsArea(room, entity.Area) {
+			continue
+		}
+		if target.ID != "" {
+			return Plan{}, false
+		}
+		target = entity
+	}
+	if target.ID == "" || target.State == "unavailable" || target.State == "unknown" || target.State == "" {
+		return Plan{}, false
+	}
+	return Plan{Actions: []Action{{Domain: domain, Service: service, EntityID: target.ID}}}, true
 }
 
 // Learn only independently meaningful utterances containing a target area.
