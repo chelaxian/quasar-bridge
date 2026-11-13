@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	request "github.com/freequasar/quasar-go-genproto/proto/alice/protos/api/alicekit/events/alice_request"
+	request "github.com/skrashevich/quasar-go-genproto/proto/alice/protos/api/alicekit/events/alice_request"
 	"quasarbridge/internal/wire"
 )
 
