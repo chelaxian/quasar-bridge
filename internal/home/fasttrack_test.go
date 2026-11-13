@@ -41,7 +41,7 @@ func TestFastTrackLearnsConfirmedSwitchOff(t *testing.T) {
 		plans++
 		return `{"answer":"ok","actions":[{"domain":"switch","service":"turn_off","entity_id":"switch.office","data":{}}],"learning":{"groups":[["кабинет"],["розетку"],["выключи"]]}}`, nil
 	})}
-	phrase := "выключи розетку в кабинете"
+	phrase := "выключи розетку в кабинете сейчас"
 	if _, err := c.Handle(t.Context(), phrase); err != nil {
 		t.Fatal(err)
 	}
