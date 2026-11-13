@@ -47,7 +47,7 @@ type FallbackResolver interface {
 }
 
 type nativeRequest struct {
-	wakewordLLM                     bool
+	wakewordRoute                   string
 	streaming                       bool
 	listenOnStreamStart             bool
 	partial                         uint32
@@ -193,7 +193,7 @@ func (n *Native) Client(ctx context.Context, k websocket.MessageType, data []byt
 			return errors.New("too many pending native requests")
 		}
 		if f.Kind() == "VoiceInput" {
-			p.wakewordLLM = claimWakewordRoute(n.WakewordRouteMarker, time.Now())
+			p.wakewordRoute = claimWakewordRoute(n.WakewordRouteMarker, time.Now())
 		}
 		if preparer, ok := n.resolver.(interface {
 			Prepare(context.Context) context.Context
@@ -500,7 +500,7 @@ func (n *Native) Server(ctx context.Context, k websocket.MessageType, data []byt
 			text = r.GetVoiceResponse().GetOutputSpeech().GetText()
 		}
 
-		if resolver, ok := n.resolver.(FallbackResolver); ok && n.isRefusal(text) {
+		if resolver, ok := n.resolver.(FallbackResolver); ok && (p.isText || n.WakewordRouteMarker == "") && n.isRefusal(text) {
 			p.local = true
 			if n.OnRoute != nil {
 				n.OnRoute(p.id, "llm")
@@ -595,9 +595,11 @@ func (n *Native) maybeResolve(p *nativeRequest) {
 		var err error
 		if n.resolver != nil && strings.TrimSpace(text) != "" {
 			if routed, ok := n.resolver.(RoutedResolver); ok {
-				decision := routed.Decide(p.ctx, text)
-				if p.wakewordLLM && decision.Source != "dialogue_reset" {
-					decision = RouteDecision{Route: "llm", Source: "wakeword"}
+				var decision RouteDecision
+				if p.isText || n.WakewordRouteMarker == "" {
+					decision = routed.Decide(p.ctx, text)
+				} else {
+					decision = explicitWakewordDecision(p.wakewordRoute, text)
 				}
 				n.mu.Lock()
 				p.listenOnStreamStart = decision.Source == "dialogue_retry"

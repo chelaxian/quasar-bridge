@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"quasarbridge/internal/home"
 	"quasarbridge/internal/llm"
 	"quasarbridge/internal/playback"
 	"quasarbridge/internal/reply"
@@ -53,8 +54,8 @@ type Engine struct {
 	// DialogueResetFile, when set, names a file whose appearance clears all
 	// conversation context before the next request (used by the settings panel).
 	DialogueResetFile string
-	dialogueOnce  sync.Once
-	routing       atomic.Pointer[RoutingPolicy]
+	dialogueOnce      sync.Once
+	routing           atomic.Pointer[RoutingPolicy]
 }
 
 func (e *Engine) dialogue() *dialogue.Store {
@@ -104,7 +105,7 @@ func (e *Engine) ResolveDecision(ctx context.Context, text string, decision Rout
 		}
 		return Resolution{Route: "llm", Answer: "Начинаем новый разговор."}, nil
 	}
-	if route != "llm" && !e.dialogue().Clear(ctx, ticket) {
+	if route != "llm" && !decision.keepDialogue && !e.dialogue().Clear(ctx, ticket) {
 		return Resolution{Route: route}, context.Canceled
 	}
 	result := Resolution{Route: route}
@@ -176,6 +177,9 @@ func (e *Engine) ResolveDecision(ctx context.Context, text string, decision Rout
 			return Resolution{Route: "yandex"}, nil
 		}
 		answer, err := e.Home.Handle(ctx, e.stripModelPrefix(text))
+		if err == nil && decision.keepDialogue && !e.dialogue().Commit(ctx, ticket, text, answer, false) {
+			return result, context.Canceled
+		}
 		result.Answer = answer
 		return result, err
 	case "llm":
@@ -185,6 +189,7 @@ func (e *Engine) ResolveDecision(ctx context.Context, text string, decision Rout
 	}
 }
 func (e *Engine) Fallback(ctx context.Context, text string) (Resolution, error) {
+	ctx = home.WithOriginalUtterance(ctx, e.stripModelPrefix(text))
 	if strings.Contains(strings.ToLower(text), "сайт") || webaddress.MusicRequest(text) {
 		text = webaddress.Normalize(text)
 	}
@@ -299,6 +304,9 @@ func (e *Engine) Decide(ctx context.Context, text string) (decision RouteDecisio
 	}
 	if e.Playback != nil && playback.Command(text) != "" && e.Playback.Active(ctx) {
 		return RouteDecision{Route: "playback", Source: "playback"}
+	}
+	if fast, ok := e.Home.(interface{ HasFastTrack(string) bool }); ok && fast.HasFastTrack(e.stripModelPrefix(text)) {
+		return RouteDecision{Route: "home", Source: "fast_track"}
 	}
 	if d, ok := p.match(text); ok {
 		if d.Route == "llm" && e.Music != nil && e.Music.CanStartMusic(text) {

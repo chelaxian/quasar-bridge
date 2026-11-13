@@ -9,16 +9,16 @@ import (
 
 func TestWakewordRouteMarkerOneShotAndExpiry(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "marker")
-	if claimWakewordRoute(p, time.Now()) {
+	if claimWakewordRoute(p, time.Now()) != "" {
 		t.Fatal("missing marker claimed")
 	}
 	if err := os.WriteFile(p, []byte("llm\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if !claimWakewordRoute(p, time.Now()) {
+	if claimWakewordRoute(p, time.Now()) != "llm" {
 		t.Fatal("valid marker missed")
 	}
-	if claimWakewordRoute(p, time.Now()) {
+	if claimWakewordRoute(p, time.Now()) != "" {
 		t.Fatal("marker claimed twice")
 	}
 	if err := os.WriteFile(p, []byte("llm\n"), 0600); err != nil {
@@ -28,7 +28,7 @@ func TestWakewordRouteMarkerOneShotAndExpiry(t *testing.T) {
 	if err := os.Chtimes(p, old, old); err != nil {
 		t.Fatal(err)
 	}
-	if claimWakewordRoute(p, time.Now()) {
+	if claimWakewordRoute(p, time.Now()) != "" {
 		t.Fatal("stale marker claimed")
 	}
 	if _, err := os.Stat(p); !os.IsNotExist(err) {
@@ -37,7 +37,30 @@ func TestWakewordRouteMarkerOneShotAndExpiry(t *testing.T) {
 }
 
 func TestWakewordRouteDisabledWithoutPath(t *testing.T) {
-	if claimWakewordRoute("", time.Now()) {
+	if claimWakewordRoute("", time.Now()) != "" {
 		t.Fatal("empty path must disable the marker")
 	}
+}
+
+func TestExplicitWakewordDecisions(t *testing.T) {
+	for _, tc := range []struct{ marker, text, want string }{
+		{"", "я в спальне ничего не вижу", "yandex"},
+		{"llm", "включи свет в спальне", "llm"},
+		{"home", "я в спальне ничего не вижу", "home"},
+		{"bogus", "включи свет", "yandex"},
+	} {
+		if got := explicitWakewordDecision(tc.marker, tc.text); got.Route != tc.want {
+			t.Errorf("marker %q: got %s want %s", tc.marker, got.Route, tc.want)
+		}
+	}
+	if got := explicitWakewordDecision("llm", "начни новый разговор"); got.Source != "dialogue_reset" {
+		t.Errorf("reset: %+v", got)
+	}
+}
+
+func TestHomeMarker(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "marker")
+	if err := os.WriteFile(p, []byte("home\n"), 0600); err != nil { t.Fatal(err) }
+	if got := claimWakewordRoute(p, time.Now()); got != "home" { t.Fatalf("got %q", got) }
+	if got := claimWakewordRoute(p, time.Now()); got != "" { t.Fatalf("reused %q", got) }
 }

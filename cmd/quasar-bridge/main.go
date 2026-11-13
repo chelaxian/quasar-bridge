@@ -226,7 +226,8 @@ func main() {
 	var musicQueue *assistant.MusicQueue
 	var hc *home.Controller
 	if endpoint := os.Getenv("QUASAR_HOME_MCP_URL"); endpoint != "" {
-		hc = &home.Controller{Tools: &home.MCP{URL: endpoint}, Planner: lc}
+		hc = &home.Controller{Tools: &home.MCP{URL: endpoint}, Planner: lc,
+			FastTrack: &home.FastTrack{Path: "/data/opt/owner-custom/fasttrack.json"}}
 		engine.Home = hc
 	}
 	if cfg.AssistantTools.Enabled {

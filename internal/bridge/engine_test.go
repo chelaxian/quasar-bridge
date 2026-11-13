@@ -17,6 +17,23 @@ func (f completionFunc) Complete(ctx context.Context, m []llm.Message, b bool) (
 
 type homeFunc func(context.Context, string) (string, error)
 
+type fastHome struct{}
+
+func (fastHome) Handle(context.Context, string) (string, error) { return "готово", nil }
+func (fastHome) HasFastTrack(text string) bool                  { return text == "в кабинете темно" }
+
+func TestFastTrackPrecedesClassifierButNotReset(t *testing.T) {
+	e := &Engine{Home: fastHome{}}
+	d := e.Decide(t.Context(), "в кабинете темно")
+	if d.Route != "home" || d.Source != "fast_track" {
+		t.Fatalf("decision=%+v", d)
+	}
+	d = e.Decide(t.Context(), "начни новый разговор")
+	if d.Source != "dialogue_reset" {
+		t.Fatalf("reset was overridden: %+v", d)
+	}
+}
+
 func (f homeFunc) Handle(ctx context.Context, s string) (string, error) { return f(ctx, s) }
 
 func TestEngineRoutesHomeComplexAndYandexWithoutDuplicateBackend(t *testing.T) {
